@@ -1247,31 +1247,35 @@ See https://github.com/adobe-type-tools/cmap-resources
                       storage.setValue(key, notes[key]);
                    }
                    console.log("GİTHUB: Eski notlar başarıyla PDF'e işlendi.");
-                } catch(e) { console.error("GİTHUB: Eski notlar yüklenirken hata:", e); }
+                } catch(e) { console.error("GİTHUB HATA:", e); }
              }, 500);
           }
        });
     }
   });
 
-  // Gizli Map Kasalarını Düz Nesnelere Çeviren Güçlü Fonksiyon
-  function deepMapToObject(item) {
+  // İç içe geçmiş tüm Map, Set ve Array matruşkalarını parçalayıp şeffaf objeye çeviren fonksiyon
+  function acimasizCevirici(item) {
       if (!item) return item;
-      if (typeof item.forEach === 'function' && item.size !== undefined) {
+      
+      if (item instanceof Map || (typeof item.forEach === 'function' && item.size !== undefined)) {
           let obj = {};
           item.forEach(function(value, key) {
-              obj[key] = deepMapToObject(value);
+              obj[key] = acimasizCevirici(value);
           });
           return obj;
       }
+      if (item instanceof Set) {
+          return Array.from(item).map(acimasizCevirici);
+      }
       if (Array.isArray(item)) {
-          return item.map(deepMapToObject);
+          return item.map(acimasizCevirici);
       }
       if (typeof item === 'object') {
           let obj = {};
           for (let key in item) {
               if (Object.prototype.hasOwnProperty.call(item, key)) {
-                  obj[key] = deepMapToObject(item[key]);
+                  obj[key] = acimasizCevirici(item[key]);
               }
           }
           return obj;
@@ -1282,27 +1286,23 @@ See https://github.com/adobe-type-tools/cmap-resources
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
-           console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
            try {
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-               let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
                
-               let notesObj = {};
-               if (mapObj && typeof mapObj.forEach === 'function') {
-                   mapObj.forEach(function(value, key) {
-                       notesObj[key] = deepMapToObject(value);
-                   });
-               }
+               // Asıl verinin olduğu ana kasayı bul
+               let targetData = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
                
-               console.log("GİTHUB 2: Wix'e gidecek GÜVENLİ veri:", notesObj);
+               // Tüm kasaları parçalayarak düz objeye (JSON) çevir
+               let notesObj = acimasizCevirici(targetData);
+               
+               console.log("GİTHUB 2: Wix'e gidecek ŞEFFAF veri:", notesObj);
                
                window.parent.postMessage({
                   action: "save_notes",
                   notes: JSON.stringify(notesObj)
                }, "*");
-               console.log("GİTHUB 3: Veri köprüden Wix'e fırlatıldı!");
            } catch(error) {
-               console.error("GİTHUB KRİTİK HATA: Veri dönüştürülemedi!", error);
+               console.error("GİTHUB KRİTİK HATA:", error);
            }
         }
      }, 1000);
