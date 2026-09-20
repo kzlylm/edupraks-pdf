@@ -1232,5 +1232,47 @@ See https://github.com/adobe-type-tools/cmap-resources
     </div>
     <!-- outerContainer -->
     <div id="printContainer"></div>
+     <!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ -->
+<script>
+  window.addEventListener("message", function(event) {
+    if (event.data && event.data.url) {
+       PDFViewerApplication.open({ url: event.data.url }).then(function() {
+          if (event.data.savedNotes && event.data.savedNotes !== "{}") {
+             setTimeout(function() {
+                try {
+                   let notes = JSON.parse(event.data.savedNotes);
+                   let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+                   for (let key in notes) {
+                      storage.setValue(key, notes[key]);
+                   }
+                } catch(e) { console.error("Not yükleme hatası", e); }
+             }, 500);
+          }
+       });
+    }
+  });
+
+  document.addEventListener("pointerup", function() {
+     setTimeout(function() {
+        if (PDFViewerApplication.pdfDocument) {
+           let rawStorage = PDFViewerApplication.pdfDocument.annotationStorage.getAll();
+           let notesObj = {};
+           
+           if (rawStorage instanceof Map) {
+               rawStorage.forEach(function(value, key) {
+                   notesObj[key] = value;
+               });
+           } else {
+               notesObj = rawStorage;
+           }
+
+           window.parent.postMessage({
+              action: "save_notes",
+              notes: JSON.stringify(notesObj)
+           }, "*");
+        }
+     }, 1000);
+  });
+</script> 
   </body>
 </html>
