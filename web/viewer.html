@@ -1260,7 +1260,6 @@ See https://github.com/adobe-type-tools/cmap-resources
            console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
            try {
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-               // Yeni PDF.js sürümlerinde veriyi .serializable ile alıyoruz
                let rawStorage = storage.serializable || storage; 
                
                let notesObj = {};
