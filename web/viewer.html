@@ -1239,6 +1239,7 @@ See https://github.com/adobe-type-tools/cmap-resources
     <!-- outerContainer -->
     <div id="printContainer"></div>
      <!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ -->
+<!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ (RADARLI SÜRÜM) -->
 <script>
   window.addEventListener("message", function(event) {
     if (event.data && event.data.url) {
@@ -1251,34 +1252,44 @@ See https://github.com/adobe-type-tools/cmap-resources
                    for (let key in notes) {
                       storage.setValue(key, notes[key]);
                    }
-                } catch(e) { console.error("Not yükleme hatası", e); }
+                   console.log("GİTHUB: Eski notlar başarıyla PDF'e işlendi.");
+                } catch(e) { console.error("GİTHUB: Eski notlar yüklenirken hata:", e); }
              }, 500);
           }
        });
     }
   });
 
+  // 'true' parametresi, PDF.js'in tıklamayı yutmasını engeller ve zorla yakalar
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
-           let rawStorage = PDFViewerApplication.pdfDocument.annotationStorage.getAll();
-           let notesObj = {};
-           
-           if (rawStorage instanceof Map) {
-               rawStorage.forEach(function(value, key) {
-                   notesObj[key] = value;
-               });
-           } else {
-               notesObj = rawStorage;
+           console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
+           try {
+               let rawStorage = PDFViewerApplication.pdfDocument.annotationStorage.getAll();
+               let notesObj = {};
+               
+               if (rawStorage instanceof Map) {
+                   rawStorage.forEach(function(value, key) {
+                       notesObj[key] = value;
+                   });
+               } else {
+                   notesObj = rawStorage;
+               }
+               
+               console.log("GİTHUB 2: Toplanan çizim verisi:", notesObj);
+               
+               window.parent.postMessage({
+                  action: "save_notes",
+                  notes: JSON.stringify(notesObj)
+               }, "*");
+               console.log("GİTHUB 3: Veri köprüden Wix'e fırlatıldı!");
+           } catch(error) {
+               console.error("GİTHUB KRİTİK HATA: Veri dönüştürülemedi!", error);
            }
-
-           window.parent.postMessage({
-              action: "save_notes",
-              notes: JSON.stringify(notesObj)
-           }, "*");
         }
      }, 1000);
-  });
-</script> 
+  }, true); 
+</script>
   </body>
 </html>
