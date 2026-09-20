@@ -1260,23 +1260,26 @@ See https://github.com/adobe-type-tools/cmap-resources
            console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
            try {
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-               let rawStorage = storage.serializable || storage; 
+               
+               // Kapalı kasayı (Map) bul
+               let dataMap = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
                
                let notesObj = {};
                
-               if (rawStorage instanceof Map) {
-                   rawStorage.forEach(function(value, key) {
+               // Kasanın içindekileri tek tek çıkartıp normal bir kutuya koy (Wix'e boş gitmesin diye)
+               if (dataMap instanceof Map) {
+                   dataMap.forEach(function(value, key) {
                        notesObj[key] = value;
                    });
                } else {
-                   for(let key in rawStorage) {
-                       if(rawStorage.hasOwnProperty(key)) {
-                           notesObj[key] = rawStorage[key];
+                   for(let key in dataMap) {
+                       if(dataMap.hasOwnProperty(key)) {
+                           notesObj[key] = dataMap[key];
                        }
                    }
                }
                
-               console.log("GİTHUB 2: Toplanan çizim verisi:", notesObj);
+               console.log("GİTHUB 2: Wix'e gidecek şeffaf veri:", notesObj);
                
                window.parent.postMessage({
                   action: "save_notes",
