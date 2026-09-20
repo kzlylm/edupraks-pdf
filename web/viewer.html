@@ -1234,7 +1234,6 @@ See https://github.com/adobe-type-tools/cmap-resources
     <!-- outerContainer -->
     <div id="printContainer"></div>
      <!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ -->
-<!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ (RADARLI SÜRÜM) -->
 <script>
   window.addEventListener("message", function(event) {
     if (event.data && event.data.url) {
@@ -1255,13 +1254,15 @@ See https://github.com/adobe-type-tools/cmap-resources
     }
   });
 
-  // 'true' parametresi, PDF.js'in tıklamayı yutmasını engeller ve zorla yakalar
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
            console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
            try {
-               let rawStorage = PDFViewerApplication.pdfDocument.annotationStorage.getAll();
+               let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+               // Yeni PDF.js sürümlerinde veriyi .serializable ile alıyoruz
+               let rawStorage = storage.serializable || storage; 
+               
                let notesObj = {};
                
                if (rawStorage instanceof Map) {
@@ -1269,7 +1270,11 @@ See https://github.com/adobe-type-tools/cmap-resources
                        notesObj[key] = value;
                    });
                } else {
-                   notesObj = rawStorage;
+                   for(let key in rawStorage) {
+                       if(rawStorage.hasOwnProperty(key)) {
+                           notesObj[key] = rawStorage[key];
+                       }
+                   }
                }
                
                console.log("GİTHUB 2: Toplanan çizim verisi:", notesObj);
