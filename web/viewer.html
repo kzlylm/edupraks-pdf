@@ -1254,32 +1254,47 @@ See https://github.com/adobe-type-tools/cmap-resources
     }
   });
 
+  // Gizli Map Kasalarını Düz Nesnelere Çeviren Güçlü Fonksiyon
+  function deepMapToObject(item) {
+      if (!item) return item;
+      if (typeof item.forEach === 'function' && item.size !== undefined) {
+          let obj = {};
+          item.forEach(function(value, key) {
+              obj[key] = deepMapToObject(value);
+          });
+          return obj;
+      }
+      if (Array.isArray(item)) {
+          return item.map(deepMapToObject);
+      }
+      if (typeof item === 'object') {
+          let obj = {};
+          for (let key in item) {
+              if (Object.prototype.hasOwnProperty.call(item, key)) {
+                  obj[key] = deepMapToObject(item[key]);
+              }
+          }
+          return obj;
+      }
+      return item;
+  }
+
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
            console.log("GİTHUB 1: Kalem kaldırıldı, veriler toplanıyor...");
            try {
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-               
-               // Kapalı kasayı (Map) bul
-               let dataMap = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
+               let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
                
                let notesObj = {};
-               
-               // Kasanın içindekileri tek tek çıkartıp normal bir kutuya koy (Wix'e boş gitmesin diye)
-               if (dataMap instanceof Map) {
-                   dataMap.forEach(function(value, key) {
-                       notesObj[key] = value;
+               if (mapObj && typeof mapObj.forEach === 'function') {
+                   mapObj.forEach(function(value, key) {
+                       notesObj[key] = deepMapToObject(value);
                    });
-               } else {
-                   for(let key in dataMap) {
-                       if(dataMap.hasOwnProperty(key)) {
-                           notesObj[key] = dataMap[key];
-                       }
-                   }
                }
                
-               console.log("GİTHUB 2: Wix'e gidecek şeffaf veri:", notesObj);
+               console.log("GİTHUB 2: Wix'e gidecek GÜVENLİ veri:", notesObj);
                
                window.parent.postMessage({
                   action: "save_notes",
