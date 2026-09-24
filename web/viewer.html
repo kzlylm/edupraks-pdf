@@ -1268,49 +1268,61 @@ See https://github.com/adobe-type-tools/cmap-resources
   }
 </style>
 
+<!-- Yazdırma Ekranını Tamamen Bembeyaz Yapan Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { display: none !important; } 
+  }
+</style>
+
 <script>
-  // 1. Ctrl + P Kısayolunu Tamamen Engelleme
+  // 1. Ctrl + P Kısayolunu İptal Et
   window.addEventListener("keydown", function(e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
           e.preventDefault(); e.stopImmediatePropagation();
       }
   }, true);
 
-  // 2. KÖK ÇÖZÜM: PDF Çizilmeden Hemen Önce Araya Girme
-  let bekleyenNotlar = null;
-
-  // PDF altyapısı hazır olduğunda, sayfalar çizilmeden 1 salise önce "documentinit" anını yakalıyoruz
-  let pusuZamanlayici = setInterval(function() {
-      if (window.PDFViewerApplication && window.PDFViewerApplication.eventBus) {
-          clearInterval(pusuZamanlayici);
-          PDFViewerApplication.eventBus.on("documentinit", function() {
-              if (bekleyenNotlar) {
-                  try {
-                      let notesArray = JSON.parse(bekleyenNotlar);
-                      let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-                      // Sayfa çizilmeden notları hafızaya yerleştiriyoruz, böylece sayfalar notlarla birlikte çiziliyor
-                      notesArray.forEach(function(item) {
-                          storage.setValue(item[0], item[1]);
-                      });
-                      bekleyenNotlar = null;
-                  } catch(e) {}
-              }
-          });
-      }
-  }, 50);
-
-  // Wix'ten gelen URL ve Veritabanı Notlarını Karşılama
+  // 2. KESİN ÇÖZÜM: Şansa bağlı süre (setTimeout) YOK. PDF'in tamamen hazır olmasını bekliyoruz.
   window.addEventListener("message", function(event) {
     if (event.data && event.data.url) {
-       if (event.data.savedNotes && event.data.savedNotes !== "{}") {
-           bekleyenNotlar = event.data.savedNotes; // Notları hazırda beklet
+       
+       let savedNotes = event.data.savedNotes;
+       
+       let notlariGom = function() {
+           if (savedNotes && savedNotes !== "{}") {
+               try {
+                   let notesArray = JSON.parse(savedNotes);
+                   let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+                   
+                   // Verileri güvenle PDF'in hafızasına yaz
+                   notesArray.forEach(function(item) {
+                       storage.setValue(item[0], item[1]);
+                   });
+                   
+                   // Sayfalar %100 var olduğu için artık zorla baştan çizdirebiliriz
+                   PDFViewerApplication.pdfViewer.cleanup();
+                   PDFViewerApplication.pdfViewer._pages.forEach(function(page) { 
+                       page.reset(); 
+                   });
+                   PDFViewerApplication.pdfViewer.update();
+               } catch(e) {}
+           }
+           // İşlem bitince dinlemeyi kapat
+           PDFViewerApplication.eventBus.off("pagesloaded", notlariGom);
+       };
+
+       // Sayfaların "Tamamen Yüklendi" (pagesloaded) sinyalini bekle ve sonra notlariGom fonksiyonunu çalıştır
+       if (window.PDFViewerApplication && window.PDFViewerApplication.eventBus) {
+           PDFViewerApplication.eventBus.on("pagesloaded", notlariGom);
        }
-       // PDF'i aç, açılırken yukarıdaki pusu kodu notları içine enjekte edecek
+
+       // PDF'i Yüklemeye Başla
        PDFViewerApplication.open({ url: event.data.url });
     }
   });
 
-  // 3. Çizimleri Kaydetme
+  // 3. Çizimleri Kaydetme (Düzgün Çalışan Kısım)
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
@@ -1319,10 +1331,7 @@ See https://github.com/adobe-type-tools/cmap-resources
                let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage.getAll();
                let notesArray = (mapObj instanceof Map) ? Array.from(mapObj.entries()) : Object.entries(mapObj);
                
-               window.parent.postMessage({
-                  action: "save_notes",
-                  notes: JSON.stringify(notesArray)
-               }, "*");
+               window.parent.postMessage({ action: "save_notes", notes: JSON.stringify(notesArray) }, "*");
            } catch(error) {}
         }
      }, 1000);
