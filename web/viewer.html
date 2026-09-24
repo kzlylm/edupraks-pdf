@@ -1239,8 +1239,19 @@ See https://github.com/adobe-type-tools/cmap-resources
   @media print { html { display: none !important; } }
 </style>
 
+<!-- Yazdırma Çıktısını Bembeyaz Sayfaya Çeviren Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { 
+          display: none !important; 
+          opacity: 0 !important; 
+          visibility: hidden !important; 
+      } 
+  }
+</style>
+
 <script>
-  // 1. Ctrl + P Kısayolunu Yutma
+  // 1. Ctrl + P Kısayolunu İptal Etme
   window.addEventListener("keydown", function(e) {
       if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
           e.preventDefault();
@@ -1248,27 +1259,38 @@ See https://github.com/adobe-type-tools/cmap-resources
       }
   }, true);
 
-  // 2. Gelen Notları Yükleme
+  // 2. Gelen Notları Yükleme ve EKRANI ZORLA YENİLEME
   window.addEventListener("message", function(event) {
     if (event.data && event.data.url) {
        PDFViewerApplication.open({ url: event.data.url }).then(function() {
           if (event.data.savedNotes && event.data.savedNotes !== "{}") {
+             // PDF'in tam yüklenmesi için süreyi biraz uzattık (1.5 saniye)
              setTimeout(function() {
                 try {
                    let notesArray = JSON.parse(event.data.savedNotes);
                    let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-                   // Veriyi PDF.js'in anlayacağı şekle geri koyuyoruz
+                   
+                   // Veriyi hafızaya yerleştir
                    notesArray.forEach(function(item) {
                        storage.setValue(item[0], item[1]);
                    });
-                } catch(e) { console.error("Yükleme hatası:", e); }
-             }, 500);
+                   
+                   // EKRANI ZORLA GÜNCELLEME (Zoom hilesiyle PDF'i tekrar çizdiriyoruz)
+                   if (PDFViewerApplication.pdfViewer) {
+                       let currentScale = PDFViewerApplication.pdfViewer.currentScale;
+                       PDFViewerApplication.pdfViewer.currentScale = currentScale + 0.00001; // Milimetrik oynat
+                       setTimeout(function() {
+                           PDFViewerApplication.pdfViewer.currentScale = currentScale; // Eski haline al
+                       }, 50);
+                   }
+                } catch(e) {}
+             }, 1500); 
           }
        });
     }
   });
 
-  // 3. Notları Kaydetme (Kasayı Parçalayıp Şeffaf Gönderme)
+  // 3. Notları Kaydetme
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
@@ -1276,7 +1298,6 @@ See https://github.com/adobe-type-tools/cmap-resources
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
                let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage.getAll();
                
-               // Kapalı Map yapısını doğrudan dümdüz bir listeye (Array) çevir
                let notesArray = (mapObj instanceof Map) ? Array.from(mapObj.entries()) : Object.entries(mapObj);
                
                window.parent.postMessage({
