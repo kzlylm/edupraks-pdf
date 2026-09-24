@@ -1234,76 +1234,56 @@ See https://github.com/adobe-type-tools/cmap-resources
     <!-- outerContainer -->
     <div id="printContainer"></div>
      <!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ -->
+<!-- Yazdırma Çıktısını Boş Sayfaya Çeviren CSS (Menüden deneseler bile beyaz sayfa alırlar) -->
+<style>
+  @media print { html { display: none !important; } }
+</style>
+
 <script>
+  // 1. Ctrl + P Kısayolunu Yutma
+  window.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+      }
+  }, true);
+
+  // 2. Gelen Notları Yükleme
   window.addEventListener("message", function(event) {
     if (event.data && event.data.url) {
        PDFViewerApplication.open({ url: event.data.url }).then(function() {
           if (event.data.savedNotes && event.data.savedNotes !== "{}") {
              setTimeout(function() {
                 try {
-                   let notes = JSON.parse(event.data.savedNotes);
+                   let notesArray = JSON.parse(event.data.savedNotes);
                    let storage = PDFViewerApplication.pdfDocument.annotationStorage;
-                   for (let key in notes) {
-                      storage.setValue(key, notes[key]);
-                   }
-                   console.log("GİTHUB: Eski notlar başarıyla PDF'e işlendi.");
-                } catch(e) { console.error("GİTHUB HATA:", e); }
+                   // Veriyi PDF.js'in anlayacağı şekle geri koyuyoruz
+                   notesArray.forEach(function(item) {
+                       storage.setValue(item[0], item[1]);
+                   });
+                } catch(e) { console.error("Yükleme hatası:", e); }
              }, 500);
           }
        });
     }
   });
 
-  // İç içe geçmiş tüm Map, Set ve Array matruşkalarını parçalayıp şeffaf objeye çeviren fonksiyon
-  function acimasizCevirici(item) {
-      if (!item) return item;
-      
-      if (item instanceof Map || (typeof item.forEach === 'function' && item.size !== undefined)) {
-          let obj = {};
-          item.forEach(function(value, key) {
-              obj[key] = acimasizCevirici(value);
-          });
-          return obj;
-      }
-      if (item instanceof Set) {
-          return Array.from(item).map(acimasizCevirici);
-      }
-      if (Array.isArray(item)) {
-          return item.map(acimasizCevirici);
-      }
-      if (typeof item === 'object') {
-          let obj = {};
-          for (let key in item) {
-              if (Object.prototype.hasOwnProperty.call(item, key)) {
-                  obj[key] = acimasizCevirici(item[key]);
-              }
-          }
-          return obj;
-      }
-      return item;
-  }
-
+  // 3. Notları Kaydetme (Kasayı Parçalayıp Şeffaf Gönderme)
   document.addEventListener("pointerup", function() {
      setTimeout(function() {
         if (PDFViewerApplication.pdfDocument) {
            try {
                let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+               let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage.getAll();
                
-               // Asıl verinin olduğu ana kasayı bul
-               let targetData = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage;
-               
-               // Tüm kasaları parçalayarak düz objeye (JSON) çevir
-               let notesObj = acimasizCevirici(targetData);
-               
-               console.log("GİTHUB 2: Wix'e gidecek ŞEFFAF veri:", notesObj);
+               // Kapalı Map yapısını doğrudan dümdüz bir listeye (Array) çevir
+               let notesArray = (mapObj instanceof Map) ? Array.from(mapObj.entries()) : Object.entries(mapObj);
                
                window.parent.postMessage({
                   action: "save_notes",
-                  notes: JSON.stringify(notesObj)
+                  notes: JSON.stringify(notesArray)
                }, "*");
-           } catch(error) {
-               console.error("GİTHUB KRİTİK HATA:", error);
-           }
+           } catch(error) {}
         }
      }, 1000);
   }, true); 
