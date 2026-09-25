@@ -22,15 +22,16 @@ See https://github.com/adobe-type-tools/cmap-resources
 -->
 <html dir="ltr" mozdisallowselectionprint>
   <head>
+      <style>
+  #print, #download, #printButton, #downloadButton, 
+  #secondaryPrint, #secondaryDownload, #secondaryPrintButton, #secondaryDownloadButton {
+      display: none !important;
+  }
+</style>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     <meta name="google" content="notranslate" />
     <title>PDF.js viewer</title>
-
-  <meta
-      http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' blob: data:; media-src blob:; font-src 'self' data:; connect-src * blob: data:; base-uri 'none'; form-action 'none';"
-    />
 
 <!-- This snippet is used in production (included from viewer.html) -->
 <link rel="resource" type="application/l10n" href="locale/locale.json" />
@@ -1232,5 +1233,109 @@ See https://github.com/adobe-type-tools/cmap-resources
     </div>
     <!-- outerContainer -->
     <div id="printContainer"></div>
+     <!-- EDUPRAKS WIX İLETİŞİM KÖPRÜSÜ -->
+<!-- Yazdırma Çıktısını Boş Sayfaya Çeviren CSS (Menüden deneseler bile beyaz sayfa alırlar) -->
+<style>
+  @media print { html { display: none !important; } }
+</style>
+
+<!-- Yazdırma Çıktısını Bembeyaz Sayfaya Çeviren Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { 
+          display: none !important; 
+          opacity: 0 !important; 
+          visibility: hidden !important; 
+      } 
+  }
+</style>
+
+<!-- Yazdırma Çıktısını Bembeyaz Sayfaya Çeviren Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { 
+          display: none !important; 
+          opacity: 0 !important; 
+          visibility: hidden !important; 
+      } 
+  }
+</style>
+
+<!-- Yazdırma Çıktısını Bembeyaz Sayfaya Çeviren Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { display: none !important; } 
+  }
+</style>
+
+<!-- Yazdırma Ekranını Tamamen Bembeyaz Yapan Kalkan -->
+<style>
+  @media print { 
+      body, html, #outerContainer, #printContainer { display: none !important; } 
+  }
+</style>
+
+<script>
+  // 1. Ctrl + P Kısayolunu İptal Et
+  window.addEventListener("keydown", function(e) {
+      if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+          e.preventDefault(); e.stopImmediatePropagation();
+      }
+  }, true);
+
+  // 2. KESİN ÇÖZÜM: Şansa bağlı süre (setTimeout) YOK. PDF'in tamamen hazır olmasını bekliyoruz.
+  window.addEventListener("message", function(event) {
+    if (event.data && event.data.url) {
+       
+       let savedNotes = event.data.savedNotes;
+       
+       let notlariGom = function() {
+           if (savedNotes && savedNotes !== "{}") {
+               try {
+                   let notesArray = JSON.parse(savedNotes);
+                   let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+                   
+                   // Verileri güvenle PDF'in hafızasına yaz
+                   notesArray.forEach(function(item) {
+                       storage.setValue(item[0], item[1]);
+                   });
+                   
+                   // Sayfalar %100 var olduğu için artık zorla baştan çizdirebiliriz
+                   PDFViewerApplication.pdfViewer.cleanup();
+                   PDFViewerApplication.pdfViewer._pages.forEach(function(page) { 
+                       page.reset(); 
+                   });
+                   PDFViewerApplication.pdfViewer.update();
+               } catch(e) {}
+           }
+           // İşlem bitince dinlemeyi kapat
+           PDFViewerApplication.eventBus.off("pagesloaded", notlariGom);
+       };
+
+       // Sayfaların "Tamamen Yüklendi" (pagesloaded) sinyalini bekle ve sonra notlariGom fonksiyonunu çalıştır
+       if (window.PDFViewerApplication && window.PDFViewerApplication.eventBus) {
+           PDFViewerApplication.eventBus.on("pagesloaded", notlariGom);
+       }
+
+       // PDF'i Yüklemeye Başla
+       PDFViewerApplication.open({ url: event.data.url });
+    }
+  });
+
+  // 3. Çizimleri Kaydetme (Düzgün Çalışan Kısım)
+  document.addEventListener("pointerup", function() {
+     setTimeout(function() {
+        if (PDFViewerApplication.pdfDocument) {
+           try {
+               let storage = PDFViewerApplication.pdfDocument.annotationStorage;
+               let mapObj = (storage.serializable && storage.serializable.map) ? storage.serializable.map : storage.getAll();
+               let notesArray = (mapObj instanceof Map) ? Array.from(mapObj.entries()) : Object.entries(mapObj);
+               
+               window.parent.postMessage({ action: "save_notes", notes: JSON.stringify(notesArray) }, "*");
+           } catch(error) {}
+        }
+     }, 1000);
+  }, true); 
+</script>
   </body>
 </html>
